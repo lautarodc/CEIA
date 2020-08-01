@@ -36,7 +36,9 @@ class Data(object):
     def get_position_uniform(self, std):
         data_size = self.position['var_x'].shape
         # Get the low and high values of uniform distribution based on standard deviation
-        high = (np.sqrt(12) * std) / 2
+        var = std**2
+        interval = (np.sqrt(12*var))
+        high = interval/2
         low = -high
         px_gaussian = self.position['var_x'] + np.random.uniform(low, high, data_size)
         py_gaussian = self.position['var_y'] + np.random.uniform(low, high, data_size)
