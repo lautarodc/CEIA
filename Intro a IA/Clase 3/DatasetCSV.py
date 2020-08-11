@@ -2,37 +2,43 @@ import numpy as np
 
 
 class SplitData(object):
-    instance = None
 
     def __init__(self, file_name):
         self.data = self._build_dataset(file_name)
-        x = self.data['income'][:, np.newaxis]
-        y = self.data['fitness'][:, np.newaxis]
-        self.train_x, self.valid_x, self.test_x = self.split(x)
-        self.train_y, self.valid_y, self.test_y = self.split(y)
+        self.train_x, self.test_x, self.train_y, self.test_y = self.split(0.8)
 
     def _build_dataset(self, file_name):
-        self.structured_type = np.dtype(
-            [('id', np.int64), ('income', np.float32), ('fitness', np.float32)])
-        return np.genfromtxt(file_name, dtype=self.structured_type, delimiter=",", skip_header=1)
+        structure = [('income', np.float),
+                     ('happiness', np.float)]
 
-    def split(self, data):
-        train_percent = 0.7
-        valid_percent = 0.2
-        train_index = int(train_percent*data.shape[0])
-        valid_index = int(valid_percent*data.shape[0])
-        splitted = np.split(data, [train_index, train_index+valid_index])
-        return splitted[0], splitted[1], splitted[2]
+        with open(file_name, encoding="utf8") as data_csv:
+            data_gen = ((float(line.split(',')[1]), float(line.split(',')[2]))  # add here + 10 in second value
+                        for i, line in enumerate(data_csv) if i != 0)
+            embeddings = np.fromiter(data_gen, structure)
+
+        return embeddings
+
+    def split(self, percentage):
+        x = self.data['income']
+        y = self.data['happiness']
+
+        permuted_idxs = np.random.permutation(x.shape[0])
+        train_idxs = permuted_idxs[0:int(percentage * x.shape[0])]
+        test_idxs = permuted_idxs[int(percentage * x.shape[0]): x.shape[0]]
+
+        x_train = x[train_idxs]
+        x_test = x[test_idxs]
+
+        y_train = y[train_idxs]
+        y_test = y[test_idxs]
+
+        return x_train, x_test, y_train, y_test
 
     def get_train_data(self):
         return self.train_x, self.train_y
-
-    def get_valid_data(self):
-        return self.valid_x, self.valid_y
 
     def get_test_data(self):
         return self.test_x, self.test_y
 
     def get_data(self):
         return self.data
-

@@ -4,10 +4,11 @@ from BaseModel import BaseModel
 
 class LinealRegressionAffine(BaseModel):
 
-    def fit(self, x, y):
-        x = np.hstack((x, np.ones((x.shape[0], 1))))
-        self.model = np.matmul(np.matmul(np.linalg.inv(np.matmul(x.T, x)), x.T), y)
+    def fit(self, X, y):
+        X = np.vstack((X, np.ones(len(X)))).T
+        W = np.linalg.inv(X.T.dot(X)).dot(X.T).dot(y)
+        self.model = W
 
-    def predict(self, x):
-        x = np.hstack((x, np.ones((x.shape[0], 1))))
-        return np.matmul(x, self.model)
+    def predict(self, X):
+        X = np.vstack((X, np.ones(len(X)))).T
+        return X.dot(self.model)

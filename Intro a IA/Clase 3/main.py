@@ -8,7 +8,7 @@ from mse_metric import MseMetric
 # Data extraction and preprocessing
 data_example = SplitData('income.csv')
 x_train, y_train = data_example.get_train_data()
-x_validation, y_validation = data_example.get_valid_data()
+x_validation, y_validation = data_example.get_test_data()
 
 # Model fitting
 lineal_regression = LinealRegression()
@@ -21,8 +21,8 @@ lineal_predictions = lineal_regression.predict(x_validation)
 affine_predictions = affine_regression.predict(x_validation)
 lineal_results = {"predictions": lineal_predictions, "truth": y_validation}
 affine_results = {"predictions": affine_predictions, "truth": y_validation}
-lineal_mse = MseMetric(**lineal_results)()[0]
-affine_mse = MseMetric(**affine_results)()[0]
+lineal_mse = MseMetric(**lineal_results)()
+affine_mse = MseMetric(**affine_results)()
 lineal_mse = np.round(lineal_mse, 4)
 affine_mse = np.round(affine_mse, 4)
 
@@ -36,7 +36,7 @@ font = {
 }
 
 plt.figure(1)
-plt.scatter(data_example.get_data()['income'], data_example.get_data()['fitness'])
+plt.scatter(data_example.get_data()['income'], data_example.get_data()['happiness'])
 plt.grid(True)
 plt.title("Happiness as f(income) (all data) ")
 plt.xlabel("Income")

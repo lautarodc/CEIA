@@ -18,6 +18,7 @@ class MovieDatasetStructured(object):
         try:
             self.structured_dataset = pickle.load(open("dataset.pickle", "rb"))
         except(OSError, IOError) as e:
+            # TODO: implement fromitter for large CSV files
             mdata = np.genfromtxt(file_name, dtype=self.mtype, delimiter=",", skip_header=1)
             pickle.dump(mdata, open("dataset.pickle", "wb"))
             self.structured_dataset = pickle.load(open("dataset.pickle", "rb"))
