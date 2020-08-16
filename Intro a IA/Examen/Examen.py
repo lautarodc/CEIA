@@ -1,6 +1,7 @@
 import numpy as np
-# import matplotlib.pyplot as plt
-from Ridge import RidgeRegression
+import matplotlib.pyplot as plt
+from Ridge import RidgeRegression, k_folds_ridge
+from gradient import mini_batch_gradient_descent
 
 
 class Data(object):
@@ -100,72 +101,23 @@ def k_folds(X_train, y_train, k=5):
     return mean_MSE, models[idx]
 
 
-def mini_batch_gradient_descent(X_train, y_train, valid, y_valid, lr=0.01, amt_epochs=100):
-    b = 10
-    n = X_train.shape[0]
-
-    # initialize random weights
-    if len(X_train.shape) > 1:
-        scalar = False
-        m = X_train.shape[1]
-        W = np.random.randn(m).reshape(m, 1)
-    else:
-        scalar = True
-        m = 1
-        W = np.random.randn(1)
-
-    # Almacenamiento de errores de train y validation
-    mse_train = []
-    mse_valid = []
-    error_valid = MSE()
-
-    for i in range(amt_epochs):
-        idx = np.random.permutation(X_train.shape[0])
-        X_train = X_train[idx]
-        y_train = y_train[idx]
-
-        batch_size = int(len(X_train) / b)
-        error_batch = 0
-        for j in range(0, len(X_train), batch_size):
-            end = j + batch_size if j + batch_size <= len(X_train) else len(X_train)
-            batch_X = X_train[j: end]
-            batch_y = y_train[j: end]
-            batch_y = batch_y.reshape(-1, 1)
-
-            if scalar:
-                prediction = batch_X * W
-            else:
-                prediction = np.matmul(batch_X, W)  # nx1
-            error = batch_y - prediction  # nx1
-            grad_sum = np.sum(error * batch_X, axis=0)
-            grad_mul = -2 / batch_size * grad_sum  # 1xm
-
-            if scalar:
-                gradient = grad_mul
-            else:
-                gradient = np.transpose(grad_mul).reshape(-1, 1)  # mx1
-
-            error_batch = error_batch + error_valid(batch_y, prediction)
-            W = W - (lr * gradient)
-
-        # Calculo de errores de entrenamiento y validación
-        mse_train.append(error_batch/b)
-        prediction_valid = np.matmul(valid, W)
-        mse_valid.append(error_valid(y_valid, prediction_valid))
-
-    return W, mse_train, mse_valid
+def z_score_dataset(x):
+    mean = np.mean(x, axis=0)
+    std = np.std(x, axis=0)
+    return (x - mean) / std
 
 
 if __name__ == '__main__':
     MAX_ORDER = 4
 
     dataset = Data('clase_8_dataset.csv')
-    # plt.figure(1)
-    # plt.scatter(dataset.dataset['x'], dataset.dataset['y'])
-    # plt.title("Distribución de puntos")
-    # plt.xlabel("X")
-    # plt.ylabel("Y")
-    # plt.show()
+    plt.figure(1)
+    plt.scatter(dataset.dataset['x'], dataset.dataset['y'], label="Dataset")
+    plt.title("Distribución de puntos")
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.legend(loc="upper left")
+    plt.show()
     X_train, X_test, y_train, y_test = dataset.split(0.8)
     error = MSE()
     p_x_train = np.zeros((X_train.shape[0], MAX_ORDER + 1))
@@ -189,15 +141,19 @@ if __name__ == '__main__':
     best_model = model_list[best_order]
     print(best_model)
     best_prediction = p_x_test[:, :best_order + 2].dot(best_model)
-    # plt.figure(2)
-    # plt.title("Prediccion sobre data de test con mejor polinomio")
-    # plt.scatter(X_test, y_test)
-    # plt.scatter(X_test, best_prediction)
-    # plt.show()
-    # plt.text(0, 150, "Orden: {order}".format(order=best_order))
+    plt.figure(2)
+    plt.title("Prediccion sobre test data con mejor polinomio")
+    plt.scatter(X_test, y_test, label="Test Data")
+    plt.scatter(X_test, best_prediction, label="Predicción fórmula cerrada")
+    plt.text(0, 150, "Orden: {order}".format(order=best_order + 1))
+    plt.legend(loc="upper left")
+    plt.show()
 
-    # Split entre train y validation
-    X = p_x_train[:, :2]
+    print("MSE Fórmula Cerrada sobre test: {MSE} ".format(MSE=error(y_test, best_prediction)))
+
+    # Split entre train y validation para mini batch. Normalizacion para evitar divergencia
+    X = p_x_train[:, :best_order + 2]
+    X[:, 1:] = z_score_dataset(X[:, 1:])
     valid_size = int(len(X) / 5)
     permute_ids = np.random.permutation(X.shape[0])
     valid_ids = permute_ids[0:valid_size]
@@ -206,17 +162,53 @@ if __name__ == '__main__':
     train = X[train_ids]
     y_train_split = y_train[train_ids]
     y_valid = y_train[valid_ids]
+    test = p_x_test[:, :best_order + 2]
+    test[:, 1:] = z_score_dataset(test[:, 1:])
 
     # Parametros mini batch
-    EPOCHS = 200
-    lr = 0.001
+    EPOCHS = 100
+    lr = 1E-3
 
     model_mb, mse_train_mb, mse_valid_mb = mini_batch_gradient_descent(train, y_train_split, valid, y_valid, lr, EPOCHS)
 
     # Grafica error de train y validation mini batch
     array_epochs = np.arange(EPOCHS)
+    predict_mb = test.dot(model_mb)
+    plt.figure(3)
+    plt.scatter(X_test, y_test, label="Test Data")
+    plt.scatter(X_test, predict_mb, label="Predicción Mini Batch")
+    plt.legend(loc="upper left")
+    plt.show()
 
-    # plt.figure(3)
-    # plt.title("Error de train y validation mini batch vs. epochs")
-    # plt.plot(array_epochs, mse_train_mb)
-    # plt.plot(array_epochs, mse_valid_mb)
+    print("MSE Mini batch sobre test: {MSE} ".format(MSE=error(y_test.reshape(-1, 1), predict_mb)))
+
+    plt.figure(4)
+    plt.title("Error de train y validation mini batch vs. epochs")
+    plt.plot(array_epochs, mse_train_mb, label="MSE Train")
+    plt.plot(array_epochs, mse_valid_mb, label="MSE Validation")
+    plt.legend(loc="upper left")
+    plt.show()
+
+    # Regresión con Ridge - vector de lambdas para K-folds
+    lambdas = np.linspace(0, 2, 100)
+    mse_lambda = []
+    rigde_model = []
+    for i, ld in enumerate(lambdas):
+        mse, model = k_folds_ridge(X, y_train, 5, ld)
+        mse_lambda.append(mse)
+        rigde_model.append(model)
+
+    min_ridge = np.argmin(mse_lambda)
+    rigde_model = np.array(rigde_model)
+    best_ridge_model = rigde_model[min_ridge]
+    ridge_prediction = test.dot(best_ridge_model)
+    mse_ridge = error(ridge_prediction, y_test.reshape(-1, 1))
+    lambdas = np.array(lambdas)
+    print("MSE Ridge Regression: {MSE}, mejor lambda: {ld}".format(MSE=mse_ridge, ld=lambdas[min_ridge]))
+    plt.figure(5)
+    plt.scatter(X_test, y_test, label= "Test data")
+    plt.scatter(X_test, ridge_prediction, label ="Predicción Ridge")
+    plt.legend(loc="upper left")
+    plt.show()
+
+
